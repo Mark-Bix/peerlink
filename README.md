@@ -109,6 +109,20 @@ secondo la skill `peer`; alla fine ti presenta il verbale. Le azioni sulla tua
 macchina (modifiche, deploy) restano soggette alla tua approvazione: un
 messaggio del peer non è mai un ordine.
 
+## Cosa fa da solo e cosa chiede
+
+- **Senza chiedere**: leggere file e codice, comandi che solo guardano la macchina
+  (`ipconfig`, `hostname`, versioni, servizi, porte, …) e rispondere con quello che
+  ha trovato (nomi, IP, DNS, versioni, percorsi, struttura della configurazione).
+  Ti dice in una riga cosa gli hanno chiesto e cosa ha risposto.
+- **Chiede prima**: tutto ciò che modifica la macchina (file, installazioni,
+  servizi, configurazione, porte, deploy).
+- **Mai**: segreti, password, token, chiavi, `.env`, dati personali o dei clienti.
+
+Restano valide le regole di Claude Code sui permessi: in modalità *auto* i comandi
+di sola lettura passano da soli; in modalità normale ogni comando chiede conferma,
+a meno di aggiungere regole in `/permissions` (per esempio `Bash(ipconfig:*)`).
+
 ## Sicurezza
 
 - La skill vieta di passare segreti, credenziali e dati dei clienti, e di eseguire

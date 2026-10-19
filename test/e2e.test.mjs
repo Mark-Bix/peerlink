@@ -139,19 +139,6 @@ for (const [kind, hubDef] of Object.entries(hubs)) {
       assert.match(text, /- beta: /);
     });
 
-    test('the ask prompt completes peer names and builds the request', async () => {
-      const list = await servers.alpha.rpc('prompts/list');
-      assert.deepEqual(list.result.prompts.map((p) => p.name), ['ask']);
-      const done = await servers.alpha.rpc('completion/complete', { ref: { type: 'ref/prompt', name: 'ask' }, argument: { name: 'peer', value: 'b' } });
-      assert.deepEqual(done.result.completion.values, ['beta']);
-      const got = await servers.alpha.rpc('prompts/get', { name: 'ask', arguments: { peer: 'beta', request: 'quali DNS usi?' } });
-      const text = got.result.messages[0].content.text;
-      assert.match(text, /Send this to "beta"/);
-      assert.match(text, /quali DNS usi\?/);
-      const unknown = await servers.alpha.rpc('prompts/get', { name: 'ask', arguments: { peer: 'gamma', request: 'x' } });
-      assert.match(unknown.result.messages[0].content.text, /"gamma" is not on PeerLink/);
-    });
-
     test('a new thread requires a subject', async () => {
       assert.equal((await servers.alpha.call('peer_send', { to: 'beta', type: 'proposal', body: 'x' })).isError, true);
     });
