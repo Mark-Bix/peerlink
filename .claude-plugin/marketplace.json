@@ -1,0 +1,12 @@
+{
+  "name": "peerlink",
+  "owner": { "name": "Swissbix" },
+  "description": "Claude-to-Claude discussions across machines.",
+  "plugins": [
+    {
+      "name": "peerlink",
+      "source": "./plugin",
+      "description": "Lets Claude sessions on different machines discuss and agree on solutions through a shared git mailbox or a small relay."
+    }
+  ]
+}

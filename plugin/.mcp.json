@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "peer": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server/peer-mcp.mjs"],
+      "env": {
+        "PEERLINK_CFG_HUB_URL": "${user_config.hub_url}",
+        "PEERLINK_CFG_TEAM_KEY": "${user_config.team_key}",
+        "PEERLINK_CFG_NAME": "${user_config.peer_name}"
+      }
+    }
+  }
+}

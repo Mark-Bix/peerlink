@@ -1,0 +1,30 @@
+{
+  "name": "peerlink",
+  "displayName": "PeerLink",
+  "version": "0.3.0",
+  "description": "Lets Claude sessions on different machines discuss and agree on solutions through a shared git mailbox or a small relay.",
+  "author": { "name": "Swissbix" },
+  "license": "UNLICENSED",
+  "keywords": ["multi-machine", "channel", "agents", "integration"],
+  "userConfig": {
+    "hub_url": {
+      "type": "string",
+      "title": "Hub",
+      "description": "Repository git della squadra (https://github.com/org/peerlink-mailbox.git) oppure URL del relay (https://peerlink.example.com)",
+      "required": true
+    },
+    "team_key": {
+      "type": "string",
+      "title": "Chiave della squadra",
+      "description": "Git: token con accesso al solo repository (vuoto = credenziali git della macchina). Relay: chiave plj_... (vuota sulla prima macchina: la crea il plugin)",
+      "default": "",
+      "sensitive": true
+    },
+    "peer_name": {
+      "type": "string",
+      "title": "Nome di questa macchina",
+      "description": "Come la vedono gli altri; vuoto = nome host",
+      "default": ""
+    }
+  }
+}
