@@ -65,6 +65,21 @@ Oppure da Claude Code: `/plugin` → installa *peerlink* e compila le opzioni
 chiave è salvata nel portachiavi del sistema. Al primo uso la macchina entra nel
 gruppo da sola.
 
+Poi, nella stessa sessione, **autorizza gli strumenti** con `/permissions` →
+*Allow* → aggiungi (in *User settings*):
+
+```
+mcp__plugin_peerlink_peer__peer_send
+mcp__plugin_peerlink_peer__peer_wait
+mcp__plugin_peerlink_peer__peer_inbox
+mcp__plugin_peerlink_peer__peer_list
+```
+
+Senza la regola su `peer_send`, in modalità auto Claude Code blocca ogni
+risposta che contiene dati della macchina («dettagli sensibili»), anche quando
+sono quelli richiesti. I comandi sulla macchina (per esempio `ipconfig`)
+continuano a chiedere conferma come sempre.
+
 ## Avviare Claude
 
 ```bash
