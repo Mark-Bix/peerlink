@@ -80,6 +80,13 @@ risposta che contiene dati della macchina («dettagli sensibili»), anche quando
 sono quelli richiesti. I comandi sulla macchina (per esempio `ipconfig`)
 continuano a chiedere conferma come sempre.
 
+## Cambiare il nome di una macchina
+
+`/plugin configure peerlink@peerlink` → **Nome di questa macchina**, poi riavvia
+Claude. Al primo avvio la macchina prende il nome nuovo, toglie quello vecchio
+dall'elenco e si porta dietro i messaggi non ancora letti; chi le scrive usa il
+nome nuovo.
+
 ## Avviare Claude
 
 ```bash

@@ -12,10 +12,11 @@ import crypto from 'node:crypto';
 const MAX_WAIT_S = 25; // the relay holds a long-poll at most this long
 
 export class RelayTransport {
-  constructor({ hub, teamKey, name, token, dataDir }) {
+  constructor({ hub, teamKey, name, nameFromEnv, token, dataDir }) {
     this.relay = hub;
     this.teamKey = teamKey;
     this.name = name;
+    this.trackName = !nameFromEnv;
     this.token = token;
     this.identitiesFile = path.join(dataDir, 'identities.json');
     this.lastId = 0;
@@ -49,10 +50,29 @@ export class RelayTransport {
 
   async open() {
     if (this.token) return;
+    await this.identify();
+    if (this.trackName) this.remember(`${this.relay}|last-name`, this.name);
+  }
+
+  async identify() {
+    const ids = this.identities();
     const key = `${this.relay}|${this.name}`;
-    this.generatedTeamKey = this.identities()[`${this.relay}|team-key`];
-    this.token = this.identities()[key];
+    this.generatedTeamKey = ids[`${this.relay}|team-key`];
+    this.token = ids[key];
     if (this.token) return;
+
+    // Rename: the configured name changed, the machine keeps its token and messages.
+    const previous = this.trackName ? ids[`${this.relay}|last-name`] : undefined;
+    if (previous && previous !== this.name && ids[`${this.relay}|${previous}`]) {
+      this.token = ids[`${this.relay}|${previous}`];
+      await this.call('POST', '/v1/rename', { body: { name: this.name } }).catch((err) => {
+        if (err.status === 409) throw new Error(`the relay already has a peer named "${this.name}": choose another peer name in the plugin options.`);
+        throw err;
+      });
+      this.remember(key, this.token);
+      this.remember(`${this.relay}|${previous}`, undefined);
+      return;
+    }
 
     const joinKey = this.teamKey || this.generatedTeamKey || `plj_${crypto.randomBytes(24).toString('base64url')}`;
     const { token } = await this.call('POST', '/v1/register', { auth: false, body: { name: this.name, join_key: joinKey } }).catch((err) => {

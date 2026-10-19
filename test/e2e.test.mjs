@@ -195,6 +195,20 @@ for (const [kind, hubDef] of Object.entries(hubs)) {
       }
     });
 
+    test('renaming a machine keeps its identity and its unread messages', async () => {
+      await servers.alpha.call('peer_send', { to: 'beta', type: 'info', subject: 'Before rename', body: 'still unread' });
+      await waitUntil(() => servers.beta.notifications.some((n) => n.params?.content === 'still unread'));
+      servers.beta.proc.kill();
+      servers.beta = await connect(envFor('beta-renamed', 'beta'));
+      assert.match((await servers.beta.call('peer_list')).text, /You are "beta-renamed"/);
+      assert.match((await servers.beta.call('peer_inbox')).text, /still unread/);
+      const { text } = await servers.alpha.call('peer_list');
+      assert.match(text, /- beta-renamed: /);
+      assert.doesNotMatch(text, /- beta: /);
+      const sent = await servers.alpha.call('peer_send', { to: 'beta-renamed', type: 'info', subject: 'After rename', body: 'hello again' });
+      assert.equal(sent.isError, false, sent.text);
+    });
+
     if (kind === 'relay') {
       test('relay: a wrong team key is refused', async () => {
         const res = await fetch(`${hub.url}/v1/register`, { method: 'POST', body: JSON.stringify({ name: 'gamma', join_key: 'plj_wrong-wrong-wrong-wrong' }) });
@@ -216,6 +230,20 @@ for (const [kind, hubDef] of Object.entries(hubs)) {
     }
 
     if (kind === 'git') {
+      test('git: a rename made before 0.6 is recovered on the next start', async () => {
+        const first = await connect(envFor('legacy-a', 'legacy'));
+        assert.equal((await first.call('peer_list')).isError, false);
+        first.proc.kill();
+        const gitDir = path.join(tmp, 'plugin-legacy', 'git');
+        for (const f of fs.readdirSync(gitDir).filter((n) => n.endsWith('.name'))) fs.rmSync(path.join(gitDir, f));
+        const second = await connect(envFor('legacy-b', 'legacy'));
+        servers.legacy = second;
+        assert.match((await second.call('peer_list')).text, /You are "legacy-b"/);
+        const { text } = await servers.alpha.call('peer_list');
+        assert.match(text, /- legacy-b: /);
+        assert.doesNotMatch(text, /- legacy-a: /);
+      });
+
       test('git: every message is a commit in the mailbox', () => {
         const log = execFileSync('git', ['--git-dir', hub.url, 'log', '--format=%s', 'main'], { encoding: 'utf8' });
         assert.match(log, /join: alpha/);

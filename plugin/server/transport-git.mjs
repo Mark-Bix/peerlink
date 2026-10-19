@@ -25,11 +25,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const randomHex = (bytes) => crypto.randomBytes(bytes).toString('hex');
 
 export class GitTransport {
-  constructor({ hub, teamKey, name, dataDir }) {
+  constructor({ hub, teamKey, name, nameFromEnv, dataDir }) {
     this.url = hub;
     this.name = name;
+    this.trackName = !nameFromEnv;
     this.intervalMs = Number(process.env.PEERLINK_GIT_INTERVAL_MS) || 10_000;
-    const slot = path.join(dataDir, 'git', `${crypto.createHash('sha256').update(hub).digest('hex').slice(0, 12)}-${name}`);
+    const hubKey = crypto.createHash('sha256').update(hub).digest('hex').slice(0, 12);
+    this.slotFor = (peer) => path.join(dataDir, 'git', `${hubKey}-${peer}`);
+    this.lastNameFile = path.join(dataDir, 'git', `${hubKey}.name`);
+    const slot = this.slotFor(name);
     this.repo = path.join(slot, 'repo');
     this.readFile = path.join(slot, 'read.json');
     this.machineIdFile = path.join(dataDir, 'machine-id');
@@ -94,18 +98,56 @@ export class GitTransport {
     return `${id}:${this.name}`;
   }
 
+  peerFile(peer) { return path.join(this.repo, 'peers', `${peer}.json`); }
+
   async join() {
-    const file = path.join(this.repo, 'peers', `${this.name}.json`);
+    const file = this.peerFile(this.name);
     const existing = readJson(file, null);
-    if (existing) {
-      if (existing.machine !== this.machineId()) {
-        throw new Error(`the mailbox already has a peer named "${this.name}" on another machine. Set another peer name in the plugin options, or delete peers/${this.name}.json from the repository.`);
-      }
-      return;
+    if (existing && existing.machine !== this.machineId()) {
+      throw new Error(`the mailbox already has a peer named "${this.name}" on another machine. Set another peer name in the plugin options, or delete peers/${this.name}.json from the repository.`);
     }
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, `${JSON.stringify({ name: this.name, machine: this.machineId(), joined_at: new Date().toISOString() }, null, 2)}\n`);
-    await this.commitAndPush([file], `join: ${this.name}`);
+    const changed = [];
+    if (!existing) {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, `${JSON.stringify({ name: this.name, machine: this.machineId(), joined_at: new Date().toISOString() }, null, 2)}\n`);
+      changed.push(file);
+    }
+    const previous = !this.trackName ? ''
+      : fs.existsSync(this.lastNameFile) ? fs.readFileSync(this.lastNameFile, 'utf8').trim()
+      : this.legacyName();
+    const renamed = previous && previous !== this.name ? this.takeOver(previous) : [];
+    changed.push(...renamed);
+    if (changed.length) await this.commitAndPush(changed, renamed.length ? `rename: ${previous} → ${this.name}` : `join: ${this.name}`);
+    if (renamed.length) fs.rmSync(this.slotFor(previous), { recursive: true, force: true });
+    if (this.trackName) fs.writeFileSync(this.lastNameFile, this.name);
+  }
+
+  // Versions before 0.6 did not record the name: a rename made with them left
+  // the old name behind. The one other name of this machine is that old name.
+  legacyName() {
+    const uuid = this.machineId().split(':')[0];
+    const mine = this.knownPeers().filter((n) => n !== this.name && readJson(this.peerFile(n), null)?.machine?.startsWith(`${uuid}:`));
+    return mine.length === 1 ? mine[0] : '';
+  }
+
+  // Rename: drops this machine's old peer file and moves its messages to the new
+  // inbox, keeping what was already read. Returns the paths that changed.
+  takeOver(previous) {
+    const oldFile = this.peerFile(previous);
+    const uuid = this.machineId().split(':')[0];
+    if (!readJson(oldFile, null)?.machine?.startsWith(`${uuid}:`)) return [];
+    fs.rmSync(oldFile);
+    const changed = [oldFile];
+    const target = path.join(this.repo, 'inbox', this.name);
+    for (const f of this.listInbox(previous)) {
+      const from = path.join(this.repo, 'inbox', previous, f.file);
+      fs.mkdirSync(target, { recursive: true });
+      fs.renameSync(from, path.join(target, f.file));
+      changed.push(from, path.join(target, f.file));
+    }
+    for (const id of readJson(path.join(this.slotFor(previous), 'read.json'), [])) this.read.add(id);
+    fs.writeFileSync(this.readFile, JSON.stringify([...this.read]));
+    return changed;
   }
 
   async sync() {

@@ -7,6 +7,8 @@
 //   - anything else (https://peerlink.example.com)                        → RelayTransport
 //
 // Every transport exposes: open(), name, peers(), send(msg), next(waitS), ack(ids).
+// open() also handles a rename: when the configured name changed since the last
+// run, the machine keeps its identity and its unread messages under the new name.
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -31,6 +33,8 @@ export function readSettings() {
     hub: env('PEERLINK_HUB_URL', 'PEERLINK_CFG_HUB_URL').replace(/\/+$/, ''),
     teamKey: env('PEERLINK_TEAM_KEY', 'PEERLINK_CFG_TEAM_KEY'),
     name: env('PEERLINK_NAME', 'PEERLINK_CFG_NAME').toLowerCase() || machineName(),
+    // A name forced by env is a side session (two on one machine), never a rename.
+    nameFromEnv: Boolean(env('PEERLINK_NAME')),
     token: env('PEERLINK_TOKEN'),
     dataDir: env('CLAUDE_PLUGIN_DATA') || path.join(os.homedir(), '.claude', 'peerlink'),
   };

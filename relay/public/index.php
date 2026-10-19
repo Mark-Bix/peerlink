@@ -7,6 +7,7 @@
 //   POST /v1/messages  {to, type, body, thread?, subject?, in_reply_to?} -> {id, thread}
 //   GET  /v1/messages?after=<id>&wait=<s>         -> {messages}      (long-poll, s <= 25)
 //   POST /v1/ack       {ids}                      -> {acked}
+//   POST /v1/rename    {name}                     -> {name}    (keeps token and messages)
 //   GET  /health
 
 declare(strict_types=1);
@@ -29,6 +30,7 @@ try {
         'POST /v1/messages' => send_message(authenticate(), read_body()),
         'GET /v1/messages' => poll_messages(authenticate()),
         'POST /v1/ack' => ack_messages(authenticate(), read_body()),
+        'POST /v1/rename' => rename_peer(authenticate(), read_body()),
         default => throw new HttpError(404, 'not found'),
     };
     echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -196,6 +198,27 @@ function ack_messages(string $me, array $b): array
     $stmt = db()->prepare("UPDATE messages SET acked = 1 WHERE recipient = ? AND acked = 0 AND id IN ($marks)");
     $stmt->execute([$me, ...$ids]);
     return ['acked' => $stmt->rowCount()];
+}
+
+function rename_peer(string $me, array $b): array
+{
+    $name = (string) ($b['name'] ?? '');
+    if (!preg_match(NAME_RE, $name)) {
+        throw new HttpError(400, 'name: lowercase letters, digits and dashes');
+    }
+    if ($name === $me) {
+        return ['name' => $me];
+    }
+    if (in_array($name, peer_names(), true)) {
+        throw new HttpError(409, "peer \"$name\" already exists");
+    }
+    $db = db();
+    $db->beginTransaction();
+    $db->prepare('UPDATE peers SET name = ? WHERE name = ?')->execute([$name, $me]);
+    $db->prepare('UPDATE messages SET recipient = ? WHERE recipient = ?')->execute([$name, $me]);
+    $db->prepare('UPDATE messages SET sender = ? WHERE sender = ?')->execute([$name, $me]);
+    $db->commit();
+    return ['name' => $name];
 }
 
 function prune(): void

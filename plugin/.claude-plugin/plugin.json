@@ -1,7 +1,7 @@
 {
   "name": "peerlink",
   "displayName": "PeerLink",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Lets Claude sessions on different machines discuss and agree on solutions through a shared git mailbox or a small relay.",
   "author": { "name": "Swissbix" },
   "license": "UNLICENSED",
