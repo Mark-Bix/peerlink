@@ -159,10 +159,17 @@ function poll_messages(string $me): array
     do {
         $stmt->execute([$me, $after]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        if ($rows || microtime(true) >= $deadline || connection_aborted()) {
+        if ($rows || microtime(true) >= $deadline) {
             break;
         }
         usleep(500_000);
+        // Leading whitespace is valid JSON: writing it is how PHP notices a client
+        // that went away, so a dead machine does not hold a PHP worker for 25 s.
+        echo ' ';
+        flush();
+        if (connection_aborted()) {
+            exit;
+        }
     } while (true);
     if ($wait > 0) {
         touch_peer($me);

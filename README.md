@@ -96,6 +96,12 @@ Due sessioni sulla stessa macchina: avviare la seconda con la variabile
 
 ## Uso
 
+```
+/peerlink:ask p8-wks-01 quali server DNS usi?
+```
+
+oppure a parole, nella sessione:
+
 > Chiedi a server-b come preferisce ricevere gli ordini da noi: webhook o polling.
 
 Claude apre un thread, aspetta la risposta e porta avanti la discussione
