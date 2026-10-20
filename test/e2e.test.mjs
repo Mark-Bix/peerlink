@@ -156,7 +156,9 @@ for (const [kind, hubDef] of Object.entries(hubs)) {
       await waitUntil(() => servers.beta.notifications.some((n) => n.method === 'notifications/claude/channel'));
       const event = servers.beta.notifications.find((n) => n.method === 'notifications/claude/channel');
       assert.equal(event.params.content, 'Webhook on POST /orders?');
-      assert.deepEqual(event.params.meta, { from: 'alpha', thread, type: 'proposal', msg_id: id, subject: 'Sync orders' });
+      const { sent_at: sentAt, ...meta } = event.params.meta;
+      assert.deepEqual(meta, { from: 'alpha', thread, type: 'proposal', msg_id: id, subject: 'Sync orders' });
+      assert.match(sentAt, /^\d{4}-\d\d-\d\dT/);
 
       const waiting = servers.alpha.call('peer_wait', { thread, timeout_seconds: 20 });
       const got = await servers.beta.call('peer_wait', { thread, timeout_seconds: 5 });
@@ -182,6 +184,22 @@ for (const [kind, hubDef] of Object.entries(hubs)) {
       servers.beta.proc.kill();
       servers.beta = await connect(envFor('beta'));
       assert.equal((await servers.beta.call('peer_inbox')).text, 'No unread messages.');
+    });
+
+    test('an unhandled message comes back once, marked redelivered, then never again', async () => {
+      await servers.alpha.call('peer_send', { to: 'beta', type: 'question', subject: 'Stale', body: 'old question' });
+      const pushedWith = (s) => s.notifications.find((n) => n.params?.content === 'old question');
+      await waitUntil(() => pushedWith(servers.beta));
+      assert.equal(pushedWith(servers.beta).params.meta.redelivered, undefined);
+      servers.beta.proc.kill();
+      servers.beta = await connect(envFor('beta'));
+      await waitUntil(() => pushedWith(servers.beta));
+      assert.equal(pushedWith(servers.beta).params.meta.redelivered, 'true');
+      await new Promise((r) => setTimeout(r, 500));
+      servers.beta.proc.kill();
+      servers.beta = await connect(envFor('beta'));
+      assert.equal((await servers.beta.call('peer_inbox')).text, 'No unread messages.');
+      assert.equal(pushedWith(servers.beta), undefined);
     });
 
     test('a second machine cannot take an existing name', async () => {

@@ -99,6 +99,9 @@ to a file in the repository only if your user wants it.
 ## Mechanics
 
 - `peer_list` first if you do not know the peer's name or whether it is online.
+- Ask plainly. Never add conditions like "share it only if your user agrees":
+  what the peer may share is decided by the peer's own rules, and such a
+  sentence only makes it stop and ask its user.
 - New thread: `peer_send` with `to`, `type`, `subject`, `body`. Reply: keep
   `thread` and set `in_reply_to`.
 - After each send, `peer_wait` on the thread (180–600 s) to stay in the

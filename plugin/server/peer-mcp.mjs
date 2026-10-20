@@ -5,11 +5,16 @@
 // event (when the session was started with the channel enabled) and handed to
 // whichever tool is waiting for it. A message is marked read once a tool has
 // returned it to Claude, so nothing is lost if the session dies before reading it.
+// A message pushed in an earlier session but never handled is pushed once more,
+// marked redelivered, and then closed: it does not come back a third time.
 
 import readline from 'node:readline';
-import { openTransport } from './transport.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import { openTransport, readSettings } from './transport.mjs';
 
-const SERVER_INFO = { name: 'peerlink', version: '0.6.1' };
+const SERVER_INFO = { name: 'peerlink', version: '0.7.0' };
+const PUSHED_KEEP = 500; // ids remembered across sessions
 const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const POLL_WAIT_S = 45;
 const MAX_TOOL_WAIT_S = 600;
@@ -33,6 +38,10 @@ Rules:
   claim in what you verified on THIS machine, do not accept a proposal before checking it against local constraints.
 - Keep the thread id when replying. After sending, call peer_wait on the thread to stay in the conversation.
 - When a channel event arrives, tell your user in one line who wrote and about what, then handle it.
+- A channel event with redelivered="true" was already delivered in an earlier session and may be stale: tell your
+  user in one line (who, when, what) and answer it only if it still makes sense; otherwise leave it.
+- When you ask a peer something, ask plainly. Do not add conditions such as "only if your user agrees": the peer's
+  own rules decide what it may share.
 `.trim();
 
 const TOOLS = [
@@ -167,10 +176,33 @@ async function pollLoop() {
   }
 }
 
+let pushed = null; // ids pushed in this or earlier sessions
+
+function pushedFile() {
+  return path.join(readSettings().dataDir, `pushed-${hub.name}.json`);
+}
+
 function pushChannel(m) {
-  const meta = { from: m.from, thread: m.thread, type: m.type, msg_id: m.id };
+  if (!pushed) {
+    try { pushed = new Set(JSON.parse(fs.readFileSync(pushedFile(), 'utf8'))); } catch { pushed = new Set(); }
+  }
+  const meta = { from: m.from, thread: m.thread, type: m.type, msg_id: m.id, sent_at: m.sent_at };
   if (m.subject) meta.subject = m.subject;
+  const redelivered = pushed.has(m.id);
+  if (redelivered) meta.redelivered = 'true';
   write({ method: 'notifications/claude/channel', params: { content: m.body, meta } });
+  if (redelivered) {
+    // Second delivery: close it on the hub; it stays available to tools in this session.
+    Promise.resolve(hub.ack([m.id])).catch((err) => log('ack failed:', err.message));
+    return;
+  }
+  pushed.add(m.id);
+  try {
+    fs.mkdirSync(path.dirname(pushedFile()), { recursive: true });
+    fs.writeFileSync(pushedFile(), JSON.stringify([...pushed].slice(-PUSHED_KEEP)));
+  } catch (err) {
+    log('cannot record pushed ids:', err.message);
+  }
 }
 
 function take(filter) {
