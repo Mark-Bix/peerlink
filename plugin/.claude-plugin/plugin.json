@@ -1,11 +1,18 @@
 {
   "name": "peerlink",
   "displayName": "PeerLink",
-  "version": "0.7.0",
+  "version": "0.8.1",
   "description": "Lets Claude sessions on different machines discuss and agree on solutions through a shared git mailbox or a small relay.",
-  "author": { "name": "Swissbix" },
+  "author": {
+    "name": "Swissbix"
+  },
   "license": "UNLICENSED",
-  "keywords": ["multi-machine", "channel", "agents", "integration"],
+  "keywords": [
+    "multi-machine",
+    "channel",
+    "agents",
+    "integration"
+  ],
   "userConfig": {
     "hub_url": {
       "type": "string",
@@ -25,6 +32,12 @@
       "title": "Nome di questa macchina",
       "description": "Come la vedono gli altri; vuoto = nome host",
       "default": ""
+    },
+    "auto_approve": {
+      "type": "boolean",
+      "title": "Invio senza conferma",
+      "description": "I messaggi PeerLink partono senza chiedere conferma (anche in modalità auto). I comandi e le modifiche restano soggetti ai permessi normali",
+      "default": true
     }
   }
 }

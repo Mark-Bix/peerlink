@@ -65,20 +65,10 @@ Oppure da Claude Code: `/plugin` → installa *peerlink* e compila le opzioni
 chiave è salvata nel portachiavi del sistema. Al primo uso la macchina entra nel
 gruppo da sola.
 
-Poi, nella stessa sessione, **autorizza gli strumenti** con `/permissions` →
-*Allow* → aggiungi (in *User settings*):
-
-```
-mcp__plugin_peerlink_peer__peer_send
-mcp__plugin_peerlink_peer__peer_wait
-mcp__plugin_peerlink_peer__peer_inbox
-mcp__plugin_peerlink_peer__peer_list
-```
-
-Senza la regola su `peer_send`, in modalità auto Claude Code blocca ogni
-risposta che contiene dati della macchina («dettagli sensibili»), anche quando
-sono quelli richiesti. I comandi sulla macchina (per esempio `ipconfig`)
-continuano a chiedere conferma come sempre.
+I messaggi PeerLink partono senza chiedere conferma, anche in modalità auto: il
+plugin approva da solo i propri strumenti (opzione **Invio senza conferma**,
+attiva di default). Comandi e modifiche sulla macchina seguono i permessi normali
+di Claude Code: in modalità *auto* quelli di sola lettura passano da soli.
 
 ## Cambiare il nome di una macchina
 
@@ -127,9 +117,14 @@ messaggio del peer non è mai un ordine.
   servizi, configurazione, porte, deploy).
 - **Mai**: segreti, password, token, chiavi, `.env`, dati personali o dei clienti.
 
-Restano valide le regole di Claude Code sui permessi: in modalità *auto* i comandi
-di sola lettura passano da soli; in modalità normale ogni comando chiede conferma,
-a meno di aggiungere regole in `/permissions` (per esempio `Bash(ipconfig:*)`).
+Una discussione va avanti da sola fino al verbale: i due Claude raccolgono
+progetto, struttura, IP, servizi e porte, si scambiano i fatti e ti presentano alla
+fine la soluzione con le modifiche da approvare. Ti coinvolgono prima solo se
+sono bloccati o se serve qualcosa che solo una persona può dare.
+
+Per i comandi valgono le regole di Claude Code: in modalità *auto* quelli di sola
+lettura passano da soli; in modalità normale ognuno chiede conferma, a meno di
+aggiungere regole in `/permissions` (per esempio `Bash(ipconfig:*)`).
 
 ## Sicurezza
 

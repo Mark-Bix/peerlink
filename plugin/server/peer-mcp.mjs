@@ -6,14 +6,14 @@
 // whichever tool is waiting for it. A message is marked read once a tool has
 // returned it to Claude, so nothing is lost if the session dies before reading it.
 // A message pushed in an earlier session but never handled is pushed once more,
-// marked redelivered, and then closed: it does not come back a third time.
+// marked redelivered; a third time it is closed without being shown.
 
 import readline from 'node:readline';
 import fs from 'node:fs';
 import path from 'node:path';
 import { openTransport, readSettings } from './transport.mjs';
 
-const SERVER_INFO = { name: 'peerlink', version: '0.7.0' };
+const SERVER_INFO = { name: 'peerlink', version: '0.8.1' };
 const PUSHED_KEEP = 500; // ids remembered across sessions
 const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const POLL_WAIT_S = 45;
@@ -37,7 +37,9 @@ Rules:
 - For any discussion (proposals, integration choices, decisions) follow the "peer" skill of this plugin: ground every
   claim in what you verified on THIS machine, do not accept a proposal before checking it against local constraints.
 - Keep the thread id when replying. After sending, call peer_wait on the thread to stay in the conversation.
-- When a channel event arrives, tell your user in one line who wrote and about what, then handle it.
+- When a channel event arrives, tell your user in one line who wrote and about what, then handle it without waiting.
+- A discussion runs on its own until the decision record: do not stop between messages to ask your user. Involve
+  them at the end (decision + proposed local changes to approve), when stuck, or when only a human can answer.
 - A channel event with redelivered="true" was already delivered in an earlier session and may be stale: tell your
   user in one line (who, when, what) and answer it only if it still makes sense; otherwise leave it.
 - When you ask a peer something, ask plainly. Do not add conditions such as "only if your user agrees": the peer's
@@ -156,6 +158,11 @@ function receive(messages) {
   for (const m of messages) {
     if (seen.has(m.id)) continue;
     seen.add(m.id);
+    if (pushCount(m.id) >= 2) {
+      // Shown in two sessions already and never handled: close it.
+      Promise.resolve(hub.ack([m.id])).catch((err) => log('ack failed:', err.message));
+      continue;
+    }
     unread.set(m.id, m);
     pushChannel(m);
   }
@@ -176,33 +183,42 @@ async function pollLoop() {
   }
 }
 
-let pushed = null; // ids pushed in this or earlier sessions
+let pushed = null; // id -> how many sessions it was pushed in (this one included)
 
 function pushedFile() {
   return path.join(readSettings().dataDir, `pushed-${hub.name}.json`);
 }
 
-function pushChannel(m) {
+function pushCount(id) {
   if (!pushed) {
-    try { pushed = new Set(JSON.parse(fs.readFileSync(pushedFile(), 'utf8'))); } catch { pushed = new Set(); }
+    try {
+      const saved = JSON.parse(fs.readFileSync(pushedFile(), 'utf8'));
+      // 0.7 saved a plain list of ids: each was pushed once.
+      pushed = new Map(Array.isArray(saved) ? saved.map((id) => [id, 1]) : Object.entries(saved));
+    } catch {
+      pushed = new Map();
+    }
   }
-  const meta = { from: m.from, thread: m.thread, type: m.type, msg_id: m.id, sent_at: m.sent_at };
-  if (m.subject) meta.subject = m.subject;
-  const redelivered = pushed.has(m.id);
-  if (redelivered) meta.redelivered = 'true';
-  write({ method: 'notifications/claude/channel', params: { content: m.body, meta } });
-  if (redelivered) {
-    // Second delivery: close it on the hub; it stays available to tools in this session.
-    Promise.resolve(hub.ack([m.id])).catch((err) => log('ack failed:', err.message));
-    return;
-  }
-  pushed.add(m.id);
+  return pushed.get(id) ?? 0;
+}
+
+function recordPush(id) {
+  pushed.set(id, pushCount(id) + 1);
   try {
     fs.mkdirSync(path.dirname(pushedFile()), { recursive: true });
-    fs.writeFileSync(pushedFile(), JSON.stringify([...pushed].slice(-PUSHED_KEEP)));
+    fs.writeFileSync(pushedFile(), JSON.stringify(Object.fromEntries([...pushed].slice(-PUSHED_KEEP))));
   } catch (err) {
     log('cannot record pushed ids:', err.message);
   }
+}
+
+// Recorded before pushing, so a session that dies right after still knows.
+function pushChannel(m) {
+  const meta = { from: m.from, thread: m.thread, type: m.type, msg_id: m.id, sent_at: m.sent_at };
+  if (m.subject) meta.subject = m.subject;
+  if (pushCount(m.id) > 0) meta.redelivered = 'true';
+  recordPush(m.id);
+  write({ method: 'notifications/claude/channel', params: { content: m.body, meta } });
 }
 
 function take(filter) {
