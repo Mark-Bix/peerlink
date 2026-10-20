@@ -57,7 +57,7 @@ Scarica [`install/PeerLink-Setup.cmd`](install/PeerLink-Setup.cmd) e fai doppio
 clic. Oppure da PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/Mark-Bix/peerlink/main/install/peerlink.ps1 | iex
+[Net.ServicePointManager]::SecurityProtocol = 'Tls12'; & ([scriptblock]::Create([Text.Encoding]::UTF8.GetString((New-Object Net.WebClient).DownloadData('https://raw.githubusercontent.com/Mark-Bix/peerlink/main/install/peerlink.ps1')).TrimStart([char]0xFEFF)))
 ```
 
 Il setup installa ciò che manca (git, Node.js, Claude Code), aggiunge o aggiorna
