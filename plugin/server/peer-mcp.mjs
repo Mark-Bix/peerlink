@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { openTransport, readSettings } from './transport.mjs';
 
-const SERVER_INFO = { name: 'peerlink', version: '0.9.0' };
+const SERVER_INFO = { name: 'peerlink', version: '0.9.1' };
 const PUSHED_KEEP = 500; // ids remembered across sessions
 const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const POLL_WAIT_S = 45;
@@ -38,8 +38,10 @@ Rules:
   claim in what you verified on THIS machine, do not accept a proposal before checking it against local constraints.
 - Keep the thread id when replying. After sending, call peer_wait on the thread to stay in the conversation.
 - When a channel event arrives, tell your user in one line who wrote and about what, then handle it without waiting.
-- A discussion runs on its own until the decision record: do not stop between messages to ask your user. Involve
-  them at the end (decision + proposed local changes to approve), when stuck, or when only a human can answer.
+- A discussion runs on its own until the decision record: do not stop between messages to ask your user.
+- Roles: the side that opened the thread (requester) asks ITS user about the requirement and preferences; the side
+  that received it (provider) never asks its user about those, and at the end brings its user ONE request to approve
+  (what is wanted, what it needs on this machine, its recommendation). Never ask the same question on both sides.
 - A channel event with redelivered="true" was already delivered in an earlier session and may be stale: tell your
   user in one line (who, when, what) and answer it only if it still makes sense; otherwise leave it.
 - When you ask a peer something, ask plainly. Do not add conditions such as "only if your user agrees": the peer's
