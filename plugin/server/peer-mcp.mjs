@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { openTransport, readSettings } from './transport.mjs';
 
-const SERVER_INFO = { name: 'peerlink', version: '0.8.1' };
+const SERVER_INFO = { name: 'peerlink', version: '0.9.0' };
 const PUSHED_KEEP = 500; // ids remembered across sessions
 const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const POLL_WAIT_S = 45;

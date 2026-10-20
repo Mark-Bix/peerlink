@@ -51,7 +51,25 @@ Ogni macchina in attesa tiene occupato un processo PHP per 25 s alla volta: con
 più di qualche macchina, alzare `pm.max_children` di PHP-FPM.
 Amministrazione: `php admin.php list-peers | remove-peer <nome> | add-peer <nome> | join-key`.
 
-## Ogni macchina: installare il plugin
+## Ogni macchina: setup automatico (Windows)
+
+Scarica [`install/PeerLink-Setup.cmd`](install/PeerLink-Setup.cmd) e fai doppio
+clic. Oppure da PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/Mark-Bix/peerlink/main/install/peerlink.ps1 | iex
+```
+
+Il setup installa ciò che manca (git, Node.js, Claude Code), aggiunge o aggiorna
+il plugin, chiede solo la chiave della squadra e il nome della macchina, verifica
+il collegamento, crea il comando `peerlink` e l'icona **PeerLink** sul desktop,
+poi avvia Claude in ascolto. Rilanciato più tardi aggiorna e basta
+(`-Reconfigure` per cambiare chiave o nome). Senza domande:
+`$env:PEERLINK_TEAM_KEY='...'; .\peerlink.ps1 -Name pc-ufficio`.
+
+Da quel momento: icona **PeerLink**, oppure `peerlink` nella cartella del progetto.
+
+## Ogni macchina: installazione a mano
 
 ```bash
 claude plugin marketplace add <percorso o repo git di peerlink>
