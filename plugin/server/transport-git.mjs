@@ -257,6 +257,21 @@ export class GitTransport {
     }
   }
 
+  // Every message of a thread, both directions, oldest first.
+  async thread(id) {
+    await this.serial(() => this.sync());
+    const inbox = path.join(this.repo, 'inbox');
+    if (!fs.existsSync(inbox)) return [];
+    const all = [];
+    for (const box of fs.readdirSync(inbox, { withFileTypes: true }).filter((d) => d.isDirectory())) {
+      for (const f of this.listInbox(box.name)) {
+        const m = readJson(path.join(inbox, box.name, f.file), null);
+        if (m?.thread === id) all.push(m);
+      }
+    }
+    return all.sort((a, b) => a.sent_at.localeCompare(b.sent_at) || a.id.localeCompare(b.id));
+  }
+
   async ack(ids) {
     for (const id of ids) this.read.add(id);
     fs.writeFileSync(this.readFile, JSON.stringify([...this.read]));

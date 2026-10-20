@@ -8,10 +8,10 @@ declare(strict_types=1);
 const MAX_BODY_CHARS = 65536;
 const MAX_WAIT_S = 25;
 const ONLINE_WINDOW_S = 70;
-const ACKED_TTL_S = 86400;
+const ACKED_TTL_S = 14 * 86400; // read messages stay as thread history
 const UNACKED_TTL_S = 14 * 86400;
 const NAME_RE = '/^[a-z0-9][a-z0-9-]{0,62}$/';
-const TYPES = ['proposal', 'question', 'answer', 'objection', 'counterproposal', 'agreement', 'decision', 'info'];
+const TYPES = ['proposal', 'question', 'answer', 'objection', 'counterproposal', 'agreement', 'decision', 'approval', 'info'];
 
 final class HttpError extends Exception
 {

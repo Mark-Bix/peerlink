@@ -13,12 +13,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { openTransport, readSettings } from './transport.mjs';
 
-const SERVER_INFO = { name: 'peerlink', version: '0.9.1' };
+const SERVER_INFO = { name: 'peerlink', version: '0.10.0' };
 const PUSHED_KEEP = 500; // ids remembered across sessions
 const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const POLL_WAIT_S = 45;
 const MAX_TOOL_WAIT_S = 600;
-const TYPES = ['proposal', 'question', 'answer', 'objection', 'counterproposal', 'agreement', 'decision', 'info'];
+const TYPES = ['proposal', 'question', 'answer', 'objection', 'counterproposal', 'agreement', 'decision', 'approval', 'info'];
 
 const INSTRUCTIONS = `
 peerlink connects this session with Claude sessions on other machines through a shared hub (a git mailbox or a relay).
@@ -37,8 +37,13 @@ Rules:
 - For any discussion (proposals, integration choices, decisions) follow the "peer" skill of this plugin: ground every
   claim in what you verified on THIS machine, do not accept a proposal before checking it against local constraints.
 - Keep the thread id when replying. After sending, call peer_wait on the thread to stay in the conversation.
+- A message in a thread you have no context for (the other side answered after this session started, or it is
+  redelivered): call peer_thread first and continue from the whole history.
 - When a channel event arrives, tell your user in one line who wrote and about what, then handle it without waiting.
 - A discussion runs on its own until the decision record: do not stop between messages to ask your user.
+- Nothing changes on either machine until BOTH users approved the same decision record: send an "approval"
+  (in_reply_to = the decision id) when your user approves, and start only once the peer's approval for that same
+  decision has arrived too. A counterproposal or a new decision voids every earlier approval.
 - Roles: the side that opened the thread (requester) asks ITS user about the requirement and preferences; the side
   that received it (provider) never asks its user about those, and at the end brings its user ONE request to approve
   (what is wanted, what it needs on this machine, its recommendation). Never ask the same question on both sides.
@@ -80,6 +85,15 @@ const TOOLS = [
         from: { type: 'string' },
         timeout_seconds: { type: 'integer', minimum: 1, maximum: MAX_TOOL_WAIT_S, default: 180 },
       },
+    },
+  },
+  {
+    name: 'peer_thread',
+    description: 'Return the whole history of a thread, both directions, oldest first. Use it before replying in a thread you have no context for (e.g. a reply that arrives in a new session).',
+    inputSchema: {
+      type: 'object',
+      properties: { thread: { type: 'string', description: 'Thread id.' } },
+      required: ['thread'],
     },
   },
   {
@@ -233,7 +247,7 @@ function take(filter) {
 const matches = ({ thread, from }) => (m) => (!thread || m.thread === thread) && (!from || m.from === from);
 
 function format(m) {
-  const head = `--- message ${m.id} · from ${m.from} · thread ${m.thread} · ${m.type} · ${m.sent_at}`;
+  const head = `--- message ${m.id} · from ${m.from}${m.to ? ` to ${m.to}` : ''} · thread ${m.thread} · ${m.type} · ${m.sent_at}`;
   return [head, m.subject ? `subject: ${m.subject}` : null, m.in_reply_to ? `in reply to ${m.in_reply_to}` : null, '', m.body]
     .filter((l) => l !== null).join('\n');
 }
@@ -277,6 +291,10 @@ async function callTool(name, args) {
         const timeout = Math.min(Math.max(Number(args.timeout_seconds) || 180, 1), MAX_TOOL_WAIT_S);
         const got = await waitFor(matches(args), timeout * 1000);
         return text(got.length ? formatAll(got) : `No message within ${timeout}s.`);
+      }
+      case 'peer_thread': {
+        const history = await hub.thread(String(args.thread ?? ''));
+        return text(history.length ? formatAll(history) : `No messages in thread ${args.thread}.`);
       }
       case 'peer_inbox': {
         receive(await hub.next(0));

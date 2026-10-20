@@ -103,6 +103,11 @@ export class RelayTransport {
     return messages.map((m) => ({ ...m, id: String(m.id) }));
   }
 
+  async thread(id) {
+    const { messages } = await this.call('GET', `/v1/thread?id=${encodeURIComponent(id)}`);
+    return messages.map((m) => ({ ...m, id: String(m.id) }));
+  }
+
   ack(ids) {
     return ids.length ? this.call('POST', '/v1/ack', { body: { ids: ids.map(Number) } }) : Promise.resolve();
   }

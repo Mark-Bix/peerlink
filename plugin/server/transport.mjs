@@ -6,7 +6,7 @@
 //   - a git repository (…/x.git, git@…, ssh://…, file://…, or a local path) → GitTransport
 //   - anything else (https://peerlink.example.com)                        → RelayTransport
 //
-// Every transport exposes: open(), name, peers(), send(msg), next(waitS), ack(ids).
+// Every transport exposes: open(), name, peers(), send(msg), next(waitS), ack(ids), thread(id).
 // open() also handles a rename: when the configured name changed since the last
 // run, the machine keeps its identity and its unread messages under the new name.
 

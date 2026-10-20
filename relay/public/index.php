@@ -8,6 +8,7 @@
 //   GET  /v1/messages?after=<id>&wait=<s>         -> {messages}      (long-poll, s <= 25)
 //   POST /v1/ack       {ids}                      -> {acked}
 //   POST /v1/rename    {name}                     -> {name}    (keeps token and messages)
+//   GET  /v1/thread?id=<thread>                   -> {messages} (history, both directions)
 //   GET  /health
 
 declare(strict_types=1);
@@ -31,6 +32,7 @@ try {
         'GET /v1/messages' => poll_messages(authenticate()),
         'POST /v1/ack' => ack_messages(authenticate(), read_body()),
         'POST /v1/rename' => rename_peer(authenticate(), read_body()),
+        'GET /v1/thread' => thread_history(authenticate()),
         default => throw new HttpError(404, 'not found'),
     };
     echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -198,6 +200,24 @@ function ack_messages(string $me, array $b): array
     $stmt = db()->prepare("UPDATE messages SET acked = 1 WHERE recipient = ? AND acked = 0 AND id IN ($marks)");
     $stmt->execute([$me, ...$ids]);
     return ['acked' => $stmt->rowCount()];
+}
+
+function thread_history(string $me): array
+{
+    $stmt = db()->prepare('SELECT id, sender, recipient, thread, type, subject, in_reply_to, body, ts FROM messages
+                           WHERE thread = ? AND (sender = ? OR recipient = ?) ORDER BY id');
+    $stmt->execute([(string) ($_GET['id'] ?? ''), $me, $me]);
+    return ['messages' => array_map(fn ($r) => array_filter([
+        'id' => (int) $r['id'],
+        'from' => $r['sender'],
+        'to' => $r['recipient'],
+        'thread' => $r['thread'],
+        'type' => $r['type'],
+        'subject' => $r['subject'],
+        'in_reply_to' => $r['in_reply_to'],
+        'body' => $r['body'],
+        'sent_at' => gmdate('Y-m-d\TH:i:s\Z', (int) $r['ts']),
+    ], fn ($v) => $v !== null), $stmt->fetchAll(PDO::FETCH_ASSOC))];
 }
 
 function rename_peer(string $me, array $b): array

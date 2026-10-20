@@ -72,7 +72,8 @@ const hubs = {
       const port = 20000 + Math.floor(Math.random() * 20000);
       const container = `peerlink-test-${port}`;
       execFileSync('docker', ['run', '-d', '--rm', '--name', container, '-p', `${port}:8080`,
-        '-e', 'PHP_CLI_SERVER_WORKERS=8', '-e', 'PEERLINK_DATA=/tmp/peerlink',
+        // 32 workers: Docker's port proxy keeps the long-polls of killed clients open.
+        '-e', 'PHP_CLI_SERVER_WORKERS=32', '-e', 'PEERLINK_DATA=/tmp/peerlink',
         '-v', `${path.join(root, 'relay')}:/app:ro`,
         'php:8.3-cli', 'php', '-d', 'log_errors=1', '-S', '0.0.0.0:8080', '-t', '/app/public', '/app/public/index.php'], { stdio: 'ignore' });
       const url = `http://127.0.0.1:${port}`;
@@ -130,7 +131,7 @@ for (const [kind, hubDef] of Object.entries(hubs)) {
 
     test('tools are listed', async () => {
       const res = await servers.alpha.rpc('tools/list');
-      assert.deepEqual(res.result.tools.map((t) => t.name), ['peer_list', 'peer_send', 'peer_wait', 'peer_inbox']);
+      assert.deepEqual(res.result.tools.map((t) => t.name), ['peer_list', 'peer_send', 'peer_wait', 'peer_thread', 'peer_inbox']);
     });
 
     test('peer_list shows identity and the other peer', async () => {
@@ -168,6 +169,15 @@ for (const [kind, hubDef] of Object.entries(hubs)) {
       assert.match(reply.text, /counterproposal/);
       assert.match(reply.text, /poll instead/);
       assert.ok(reply.text.includes(`in reply to ${id}`));
+
+      // A new session that knows nothing of the thread reads it back whole.
+      const history = (await servers.beta.call('peer_thread', { thread })).text;
+      assert.ok(history.indexOf('Webhook on POST /orders?') < history.indexOf('poll instead'));
+      assert.match(history, /from alpha to beta/);
+      assert.match(history, /from beta to alpha/);
+
+      const approval = await servers.alpha.call('peer_send', { to: 'beta', type: 'approval', thread, in_reply_to: id, body: 'approved here' });
+      assert.equal(approval.isError, false, approval.text);
     });
 
     test('peer_wait times out cleanly', async () => {

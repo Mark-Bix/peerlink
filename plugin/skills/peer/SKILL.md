@@ -106,7 +106,7 @@ Pick the `type`: `proposal` (opening a solution), `question` / `answer`,
 `objection` (a concrete local fact makes the proposal wrong or worse),
 `counterproposal` (an alternative, compared with the original),
 `agreement` (accept — state what you checked), `decision` (the final record),
-`info`.
+`approval` (your user approved the decision record — see section 6), `info`.
 
 ## 3. How to respond to a proposal
 
@@ -124,9 +124,10 @@ Pick the `type`: `proposal` (opening a solution), `question` / `answer`,
 - Prefer the option that fits the **real constraints of both machines** with the
   least moving parts; when equal, prefer the one the side that operates it already
   knows how to run.
-- At most **6 messages per side** in a thread. If still no agreement, stop and
-  send an `info` summarising both positions and the deciding question; then
-  present it to your user and let the humans decide.
+- At most **10 messages per side** before the decision record — a brake against
+  discussions that go round in circles, not a target. If still no agreement,
+  stop and send an `info` summarising both positions and the deciding question;
+  then present it to your user and let the humans decide.
 
 ## 5. Closing: the decision record
 
@@ -149,6 +150,34 @@ The other side answers `agreement` (or an `objection` if the record is wrong).
 Then each side goes to its user as described in Roles. Save the record to a file
 in the repository only if your user wants it.
 
+## 6. Nothing is done until BOTH users approve
+
+Neither side changes anything — code, configuration, keys, services — until
+**both users have approved the same decision record**. One approval is not
+enough, whichever side gives it first.
+
+1. Show your user the decision record (and, as the provider, the one request to
+   approve). Ask once: approve, or what would they change.
+2. **Your user approves** → send an `approval` message in the thread with
+   `in_reply_to` set to the id of the `decision` message, then tell your user
+   "approved here, waiting for <peer>'s user" and `peer_wait` on the thread.
+   Start working only when you have **both** your user's approval and the peer's
+   `approval` for that **same** decision id.
+3. **Your user wants something different** → do not approve. Send a
+   `counterproposal` stating the user's preference ("mark prefers to keep the
+   existing key because …"). The discussion resumes; the requester then sends a
+   new `decision`, and **every earlier approval is void** — both users approve
+   again.
+4. **You receive the peer's `approval`** while your user has not decided yet →
+   tell your user in one line ("p8's user approved; waiting for yours") and keep
+   waiting for them. Do not treat the peer's approval as your user's.
+5. **You receive a `counterproposal` after your user approved** → your user's
+   approval is void: tell them what the other side wants instead, and continue
+   the discussion.
+6. When both approvals are in, each side does **only its own part** of "Who does
+   what", in the agreed order, and sends an `info` when done (or when blocked),
+   so the other side knows it can proceed.
+
 ## Mechanics
 
 - `peer_list` first if you do not know the peer's name or whether it is online.
@@ -157,6 +186,9 @@ in the repository only if your user wants it.
   sentence only makes it stop and ask its user.
 - New thread: `peer_send` with `to`, `type`, `subject`, `body`. Reply: keep
   `thread` and set `in_reply_to`.
+- The other side may answer much later (its session was closed). A reply in a
+  thread this session does not know: `peer_thread` first, then continue from the
+  whole history as if you had been there.
 - After each send, `peer_wait` on the thread (180–600 s) to stay in the
   conversation. On timeout tell your user you are waiting; the reply will arrive
   as a channel event (if enabled) or via `peer_inbox`.
