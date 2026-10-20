@@ -104,7 +104,8 @@ Due sessioni sulla stessa macchina: avviare la seconda con la variabile
 ## Uso
 
 ```
-/peerlink:ask p8-wks-01 quali server DNS usi?
+/peerlink:peers                                  le macchine collegate
+/peerlink:ask p8-wks-01 quali server DNS usi?    una richiesta a un'altra macchina
 ```
 
 oppure a parole, nella sessione:

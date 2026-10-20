@@ -9,7 +9,7 @@
 import readline from 'node:readline';
 import { openTransport } from './transport.mjs';
 
-const SERVER_INFO = { name: 'peerlink', version: '0.6.0' };
+const SERVER_INFO = { name: 'peerlink', version: '0.6.1' };
 const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const POLL_WAIT_S = 45;
 const MAX_TOOL_WAIT_S = 600;
