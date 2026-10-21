@@ -53,8 +53,12 @@ ask() { # ask <prompt> <var> [silent]
 
 export DEBIAN_FRONTEND=noninteractive  # no tzdata or other prompts from apt
 QUIET='/dev/null'
-SUDO=''
-if [ "$(id -u)" -ne 0 ]; then have sudo && SUDO='sudo'; fi
+as_root() { # runs a command as root: directly when already root, else through sudo
+  if [ "$(id -u)" -eq 0 ]; then "$@"
+  elif have sudo; then sudo -E "$@"
+  else die "Serve l'accesso di amministratore (sudo) per installare: $*"
+  fi
+}
 OS="$(uname -s)"
 
 pkg_install() { # pkg_install <package> <label>
@@ -62,11 +66,11 @@ pkg_install() { # pkg_install <package> <label>
   if [ "$OS" = Darwin ]; then
     have brew || die "$2 non è installato e Homebrew non c'è: installalo a mano e rilancia il setup."
     brew install "$1"
-  elif have apt-get; then { $SUDO apt-get update -qq && $SUDO -E apt-get install -y -qq "$1"; } > "$QUIET" 2>&1
-  elif have dnf; then $SUDO dnf install -y -q "$1" > "$QUIET" 2>&1
-  elif have yum; then $SUDO yum install -y -q "$1" > "$QUIET" 2>&1
-  elif have zypper; then $SUDO zypper -q install -y "$1" > "$QUIET" 2>&1
-  elif have pacman; then $SUDO pacman -S --noconfirm "$1" > "$QUIET" 2>&1
+  elif have apt-get; then { as_root apt-get update -qq && as_root apt-get install -y -qq "$1"; } > "$QUIET" 2>&1
+  elif have dnf; then as_root dnf install -y -q "$1" > "$QUIET" 2>&1
+  elif have yum; then as_root yum install -y -q "$1" > "$QUIET" 2>&1
+  elif have zypper; then as_root zypper -q install -y "$1" > "$QUIET" 2>&1
+  elif have pacman; then as_root pacman -S --noconfirm "$1" > "$QUIET" 2>&1
   else die "$2 non è installato e non trovo un gestore di pacchetti: installalo a mano e rilancia il setup."
   fi
 }
@@ -79,11 +83,11 @@ install_node() {
   # Distribution packages are often older than Node 20: use NodeSource.
   if have apt-get; then
     have curl || pkg_install curl curl
-    curl -fsSL https://deb.nodesource.com/setup_lts.x | $SUDO -E bash - > "$QUIET" 2>&1
-    $SUDO -E apt-get install -y -qq nodejs > "$QUIET" 2>&1
+    curl -fsSL https://deb.nodesource.com/setup_lts.x | as_root bash - > "$QUIET" 2>&1
+    as_root apt-get install -y -qq nodejs > "$QUIET" 2>&1
   elif have dnf || have yum; then
-    curl -fsSL https://rpm.nodesource.com/setup_lts.x | $SUDO bash - > "$QUIET" 2>&1
-    if have dnf; then $SUDO dnf install -y -q nodejs > "$QUIET" 2>&1; else $SUDO yum install -y -q nodejs > "$QUIET" 2>&1; fi
+    curl -fsSL https://rpm.nodesource.com/setup_lts.x | as_root bash - > "$QUIET" 2>&1
+    if have dnf; then as_root dnf install -y -q nodejs > "$QUIET" 2>&1; else as_root yum install -y -q nodejs > "$QUIET" 2>&1; fi
   else
     pkg_install nodejs Node.js
   fi
