@@ -69,6 +69,19 @@ poi avvia Claude in ascolto. Rilanciato più tardi aggiorna e basta
 
 Da quel momento: icona **PeerLink**, oppure `peerlink` nella cartella del progetto.
 
+## Ogni macchina: setup automatico (Linux e macOS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Mark-Bix/peerlink/main/install/peerlink.sh | bash
+```
+
+Fa le stesse cose del setup Windows: installa ciò che manca (git, Node.js 20+ da
+NodeSource, Claude Code; con `sudo` se serve), plugin, chiave e nome, verifica,
+comando `peerlink` (e la voce nel menu applicazioni sui desktop Linux, l'icona
+`PeerLink.command` sul desktop macOS), poi avvia Claude in ascolto. Opzioni:
+`… | bash -s -- --name server-web --workdir /srv/app --no-launch`; senza domande
+con `PEERLINK_TEAM_KEY=… ` davanti a `bash`.
+
 ## Ogni macchina: installazione a mano
 
 ```bash
